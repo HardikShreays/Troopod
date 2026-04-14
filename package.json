@@ -16,6 +16,7 @@
   "author": "Troopod Team",
   "license": "MIT",
   "dependencies": {
+    "@microlink/mql": "^0.14.0",
     "axios": "^1.15.0",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",

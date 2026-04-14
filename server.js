@@ -88,6 +88,7 @@ app.get('/health', async (req, res) => {
 app.post('/api/personalize', upload.single('adCreative'), async (req, res) => {
   try {
     const landingPageURL = (req.body.landingPageURL || '').trim();
+    const landingPageHTML = (req.body.landingPageHTML || '').trim();
 
     // Validation
     if (!landingPageURL) {
@@ -123,7 +124,8 @@ app.post('/api/personalize', upload.single('adCreative'), async (req, res) => {
     const result = await orchestrator.personalizeLandingPage(
       adPayload.adImageBase64,
       landingPageURL,
-      adPayload.adType
+      adPayload.adType,
+      { landingPageHTML }
     );
 
     if (!result.success) {

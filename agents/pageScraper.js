@@ -1,5 +1,6 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
+const mql = require('@microlink/mql');
 
 /** Headers that mimic a current desktop browser; reduces 403s from CDNs/WAFs vs bare axios. */
 const BROWSER_HEADERS = {
@@ -17,14 +18,15 @@ const BROWSER_HEADERS = {
   'Sec-Fetch-User': '?1'
 };
 
+const MIN_HTML_CHARS = 200;
+
 function formatScrapeError(error) {
   if (axios.isAxiosError(error) && error.response) {
     const status = error.response.status;
     if (status === 403 || status === 401) {
       return (
         `Landing page returned HTTP ${status} (access denied). ` +
-        'The site may block requests from cloud/datacenter IPs or bots. ' +
-        'Try another public URL, a simpler marketing page, or host a copy the server can reach.'
+        'The server will retry via a fetch proxy; if that also fails, try another URL.'
       );
     }
     if (status === 429) {
@@ -41,37 +43,151 @@ function formatScrapeError(error) {
   return error.message || String(error);
 }
 
+/**
+ * When direct fetch from Vercel/datacenter IPs returns 403/401/429, fetch HTML via Microlink
+ * (different egress + optional browser render). Free tier works without an API key; set
+ * MICROLINK_API_KEY for higher limits.
+ */
+async function fetchHtmlViaMicrolink(targetUrl) {
+  const apiKey = process.env.MICROLINK_API_KEY;
+  const base = {
+    meta: false,
+    ...(apiKey ? { apiKey } : {}),
+    data: {
+      html: { selector: 'html' }
+    }
+  };
+
+  const attempts = [
+    { prerender: false, timeout: 15000 },
+    { prerender: true, timeout: 28000 }
+  ];
+
+  let lastError = null;
+
+  for (const { prerender, timeout } of attempts) {
+    try {
+      const result = await mql(
+        targetUrl,
+        { ...base, prerender },
+        { timeout: { request: timeout } }
+      );
+
+      const html = result.data?.html;
+      if (result.status === 'success' && typeof html === 'string') {
+        if (html.length >= MIN_HTML_CHARS) {
+          return html;
+        }
+        if (prerender && html.length >= 80) {
+          return html;
+        }
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  const msg =
+    lastError && lastError.message
+      ? lastError.message
+      : 'Microlink could not retrieve usable HTML for this URL.';
+  throw new Error(msg);
+}
+
 class LandingPageScraperAgent {
   constructor() {
     this.timeout = 10000;
   }
 
-  async scrapePage(url) {
+  /**
+   * @param {string} url - Canonical landing page URL (still required for context)
+   * @param {{ html?: string }} [options] - If `html` is set, skip HTTP fetch (escape hatch)
+   */
+  async scrapePage(url, options = {}) {
     try {
-      // Validate URL
       const urlObj = new URL(url);
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
         throw new Error('Invalid URL protocol');
       }
 
-      const response = await axios.get(url, {
-        timeout: this.timeout,
-        headers: BROWSER_HEADERS,
-        maxRedirects: 5
-      });
+      const pasted = typeof options.html === 'string' ? options.html.trim() : '';
+      let html;
+      let source;
 
-      const html = response.data;
+      if (pasted) {
+        if (pasted.length < 80) {
+          return {
+            success: false,
+            error: 'Pasted HTML is too short. Paste the full page source (usually several KB).',
+            data: null
+          };
+        }
+        if (!pasted.includes('<')) {
+          return {
+            success: false,
+            error: 'Pasted content does not look like HTML.',
+            data: null
+          };
+        }
+        html = pasted;
+        source = 'paste';
+      } else {
+        let directError = null;
+        let directStatus = null;
+
+        try {
+          const response = await axios.get(url, {
+            timeout: this.timeout,
+            headers: BROWSER_HEADERS,
+            maxRedirects: 5
+          });
+          html = response.data;
+          source = 'fetch';
+        } catch (err) {
+          directError = err;
+          if (axios.isAxiosError(err) && err.response) {
+            directStatus = err.response.status;
+          }
+
+          const useProxy =
+            directStatus === 403 || directStatus === 401 || directStatus === 429;
+
+          if (useProxy) {
+            console.warn(
+              `Landing page direct fetch failed (${directStatus}), using Microlink proxy`
+            );
+            try {
+              html = await fetchHtmlViaMicrolink(url);
+              source = 'proxy';
+            } catch (proxyErr) {
+              console.error('Microlink proxy failed:', proxyErr);
+              return {
+                success: false,
+                error: `${formatScrapeError(directError)} Proxy fallback also failed: ${proxyErr.message || proxyErr}`,
+                data: null
+              };
+            }
+          } else {
+            console.error('Scraping error:', directError);
+            return {
+              success: false,
+              error: formatScrapeError(directError),
+              data: null
+            };
+          }
+        }
+      }
+
       const $ = cheerio.load(html);
-
-      // Extract key elements
       const structure = this._extractStructure($);
-      
+
       return {
         success: true,
         data: {
           url,
           html,
           structure,
+          source,
           title: $('title').text() || '',
           metaDescription: $('meta[name="description"]').attr('content') || ''
         }
@@ -114,8 +230,8 @@ class LandingPageScraperAgent {
       const text = $(el).text().trim() || $(el).attr('value') || '';
       const href = $(el).attr('href') || '';
       if (text) {
-        structure.ctas.push({ 
-          text, 
+        structure.ctas.push({
+          text,
           href,
           selector: this._getSelector($, el)
         });
@@ -125,8 +241,9 @@ class LandingPageScraperAgent {
     // Extract main content paragraphs
     $('p').each((i, el) => {
       const text = $(el).text().trim();
-      if (text && text.length > 20) { // Only meaningful paragraphs
-        structure.paragraphs.push({ 
+      if (text && text.length > 20) {
+        // Only meaningful paragraphs
+        structure.paragraphs.push({
           text: text.substring(0, 200), // Limit length
           selector: this._getSelector($, el)
         });
@@ -152,7 +269,7 @@ class LandingPageScraperAgent {
 
     const classes = el.attr('class');
     if (classes) {
-      const classList = classes.split(' ').filter(c => c.trim());
+      const classList = classes.split(' ').filter((c) => c.trim());
       if (classList.length > 0) {
         return `${element.name}.${classList[0]}`;
       }

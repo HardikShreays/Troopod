@@ -11,7 +11,8 @@ class PersonalizationOrchestrator {
     this.htmlGenerator = new HTMLGeneratorAgent(apiKey);
   }
 
-  async personalizeLandingPage(adImageBase64, landingPageURL, adType = 'image/jpeg') {
+  async personalizeLandingPage(adImageBase64, landingPageURL, adType = 'image/jpeg', options = {}) {
+    const { landingPageHTML } = options;
     const results = {
       steps: [],
       success: false,
@@ -33,13 +34,17 @@ class PersonalizationOrchestrator {
         throw new Error(`Ad analysis failed: ${adAnalysis.error}`);
       }
 
-      // Step 2: Scrape the landing page
+      // Step 2: Scrape the landing page (or use pasted HTML when fetch is blocked, e.g. Vercel 403)
       console.log('Step 2: Scraping landing page...');
-      const pageData = await this.pageScraper.scrapePage(landingPageURL);
+      const pageData = await this.pageScraper.scrapePage(landingPageURL, {
+        html: landingPageHTML
+      });
       results.steps.push({
         step: 'Page Scraping',
         success: pageData.success,
-        data: pageData.success ? { structure: pageData.data.structure } : null
+        data: pageData.success
+          ? { structure: pageData.data.structure, source: pageData.data.source }
+          : null
       });
 
       if (!pageData.success) {

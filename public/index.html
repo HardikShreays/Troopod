@@ -81,9 +81,48 @@
             transition: border-color 0.3s;
         }
 
-        .form-section input:focus {
+        .form-section textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            transition: border-color 0.3s;
+            resize: vertical;
+        }
+
+        .form-section input:focus,
+        .form-section textarea:focus {
             outline: none;
             border-color: #667eea;
+        }
+
+        .form-section .field-hint {
+            display: block;
+            font-weight: normal;
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 6px;
+        }
+
+        .form-section details.advanced {
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            padding: 12px 16px;
+            background: #fafafa;
+        }
+
+        .form-section details.advanced summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.95rem;
+        }
+
+        .form-section details.advanced[open] summary {
+            margin-bottom: 10px;
         }
 
         .file-upload {
@@ -361,6 +400,19 @@
                     >
                 </div>
 
+                <details class="form-section advanced">
+                    <summary>Advanced — paste HTML only if the link still fails</summary>
+                    <label for="landingPageHTML" class="field-hint" style="display:block;margin-bottom:8px;">
+                        The server usually fetches your URL directly, then retries through a proxy on 403. Only use this if both fail.
+                    </label>
+                    <textarea
+                        id="landingPageHTML"
+                        name="landingPageHTML"
+                        placeholder="<!DOCTYPE html>…"
+                        spellcheck="false"
+                    ></textarea>
+                </details>
+
                 <button type="submit" class="btn-primary" id="submitBtn">
                     ✨ Personalize Landing Page
                 </button>
@@ -455,6 +507,7 @@
             const adCreative = document.getElementById('adCreative').files[0];
             const adCreativeURL = document.getElementById('adCreativeURL').value.trim();
             const landingPageURL = document.getElementById('landingPageURL').value.trim();
+            const landingPageHTML = document.getElementById('landingPageHTML').value.trim();
 
             if (!adCreative && !adCreativeURL) {
                 const errorEl = document.getElementById('errorMessage');
@@ -479,6 +532,9 @@
             }
             formData.append('adCreativeURL', adCreativeURL);
             formData.append('landingPageURL', landingPageURL);
+            if (landingPageHTML) {
+                formData.append('landingPageHTML', landingPageHTML);
+            }
 
             // Show loading
             document.getElementById('errorMessage').classList.remove('active');
