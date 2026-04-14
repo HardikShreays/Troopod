@@ -1,0 +1,27 @@
+{
+  "name": "troopod-lp-personalizer",
+  "version": "1.0.0",
+  "description": "AI-powered landing page personalizer based on ad creatives",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "ai",
+    "landing-page",
+    "personalization",
+    "cro"
+  ],
+  "author": "Troopod Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.15.0",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "groq-sdk": "^1.1.2",
+    "multer": "^2.1.1"
+  }
+}

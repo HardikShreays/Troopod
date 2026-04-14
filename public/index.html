@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Troopod - AI Landing Page Personalizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .status-badge {
+            margin-top: 12px;
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin-bottom: 30px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+        }
+
+        .form-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 0.95rem;
+        }
+
+        .form-section input[type="text"],
+        .form-section input[type="url"] {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-upload {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            border: 2px dashed #d0d0d0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+
+        .file-upload-label:hover {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+
+        .file-upload-label.has-file {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+
+        .upload-text {
+            text-align: left;
+        }
+
+        .upload-text p {
+            margin: 0;
+            color: #666;
+        }
+
+        .upload-text .primary {
+            color: #333;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-steps {
+            text-align: left;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .loading-step {
+            padding: 10px 0;
+            display: flex;
+            align-items: center;
+            color: #666;
+        }
+
+        .loading-step.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .loading-step.complete {
+            color: #4caf50;
+        }
+
+        .step-icon {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .result-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .result-item {
+            margin-bottom: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+        }
+
+        .result-item strong {
+            color: #667eea;
+        }
+
+        .modifications-list {
+            list-style: none;
+        }
+
+        .modifications-list li {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 6px;
+            border-left: 3px solid #4caf50;
+        }
+
+        .btn-secondary {
+            padding: 12px 24px;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .action-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .error {
+            padding: 20px;
+            background: #fff0f0;
+            border-left: 4px solid #f44336;
+            border-radius: 8px;
+            color: #d32f2f;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .main-card {
+                padding: 24px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn-secondary {
+                width: 100%;
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Troopod AI LP Personalizer</h1>
+            <p>Transform your landing pages with AI-powered personalization</p>
+            <div class="status-badge" id="healthBadge">Checking agent status...</div>
+        </div>
+
+        <div class="main-card">
+            <form id="personalizationForm">
+                <div class="form-section">
+                    <label for="adCreative">Upload Ad Creative</label>
+                    <div class="file-upload">
+                        <input type="file" id="adCreative" name="adCreative" accept="image/*">
+                        <label for="adCreative" class="file-upload-label" id="fileLabel">
+                            <span class="upload-icon">📸</span>
+                            <div class="upload-text">
+                                <p class="primary">Click to upload your ad creative</p>
+                                <p>Supports JPG, PNG, WebP (max 10MB)</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <label for="adCreativeURL">Or Ad Creative Image URL</label>
+                    <input
+                        type="url"
+                        id="adCreativeURL"
+                        name="adCreativeURL"
+                        placeholder="https://example.com/your-ad-image.png"
+                    >
+                </div>
+
+                <div class="form-section">
+                    <label for="landingPageURL">Landing Page URL</label>
+                    <input 
+                        type="url" 
+                        id="landingPageURL" 
+                        name="landingPageURL" 
+                        placeholder="https://example.com/landing-page" 
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn-primary" id="submitBtn">
+                    ✨ Personalize Landing Page
+                </button>
+            </form>
+
+            <div class="error" id="errorMessage"></div>
+
+            <div class="loading" id="loadingSection">
+                <div class="spinner"></div>
+                <h3>Processing Your Personalization...</h3>
+                <div class="loading-steps">
+                    <div class="loading-step" id="step1">
+                        <span class="step-icon">⏳</span>
+                        <span>Analyzing ad creative...</span>
+                    </div>
+                    <div class="loading-step" id="step2">
+                        <span class="step-icon">⏳</span>
+                        <span>Scraping landing page...</span>
+                    </div>
+                    <div class="loading-step" id="step3">
+                        <span class="step-icon">⏳</span>
+                        <span>Creating CRO strategy...</span>
+                    </div>
+                    <div class="loading-step" id="step4">
+                        <span class="step-icon">⏳</span>
+                        <span>Generating personalized page...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results" id="resultsSection">
+                <h2 style="margin-bottom: 20px;">✅ Personalization Complete!</h2>
+                
+                <div class="result-section">
+                    <h3>📊 Ad Analysis</h3>
+                    <div id="adAnalysisContent"></div>
+                </div>
+
+                <div class="result-section">
+                    <h3>🎯 Personalization Strategy</h3>
+                    <div id="strategyContent"></div>
+                </div>
+
+                <div class="result-section">
+                    <h3>✏️ Modifications Made</h3>
+                    <ul class="modifications-list" id="modificationsList"></ul>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="button" class="btn-secondary" id="viewPersonalizedBtn">
+                        👁️ View Personalized Page
+                    </button>
+                    <button type="button" class="btn-secondary" id="downloadBtn">
+                        💾 Download HTML
+                    </button>
+                    <button type="button" class="btn-secondary" id="newRequestBtn">
+                        🔄 New Request
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let personalizedHTML = '';
+        let currentResults = null;
+
+        initHealthBadge();
+
+        // File upload handling
+        document.getElementById('adCreative').addEventListener('change', function(e) {
+            const label = document.getElementById('fileLabel');
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('adCreativeURL').value = '';
+                label.classList.add('has-file');
+                label.innerHTML = `
+                    <span class="upload-icon">✅</span>
+                    <div class="upload-text">
+                        <p class="primary">${file.name}</p>
+                        <p>${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                `;
+            }
+        });
+
+        // Form submission
+        document.getElementById('personalizationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const adCreative = document.getElementById('adCreative').files[0];
+            const adCreativeURL = document.getElementById('adCreativeURL').value.trim();
+            const landingPageURL = document.getElementById('landingPageURL').value.trim();
+
+            if (!adCreative && !adCreativeURL) {
+                const errorEl = document.getElementById('errorMessage');
+                errorEl.textContent = 'Error: Upload an ad image or provide an image URL.';
+                errorEl.classList.add('active');
+                return;
+            }
+
+            if (adCreativeURL) {
+                try {
+                    new URL(adCreativeURL);
+                } catch (error) {
+                    const errorEl = document.getElementById('errorMessage');
+                    errorEl.textContent = 'Error: Invalid ad image URL format.';
+                    errorEl.classList.add('active');
+                    return;
+                }
+            }
+
+            if (adCreative) {
+                formData.append('adCreative', adCreative);
+            }
+            formData.append('adCreativeURL', adCreativeURL);
+            formData.append('landingPageURL', landingPageURL);
+
+            // Show loading
+            document.getElementById('errorMessage').classList.remove('active');
+            document.getElementById('loadingSection').classList.add('active');
+            document.getElementById('resultsSection').classList.remove('active');
+            document.getElementById('submitBtn').disabled = true;
+
+            try {
+                const response = await fetch('/api/personalize', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                // Update visual progress
+                const returnedSteps = result.steps || [];
+                ['step1', 'step2', 'step3', 'step4'].forEach((stepId, idx) => {
+                    const apiStep = returnedSteps[idx];
+                    const ok = apiStep ? Boolean(apiStep.success) : true;
+                    updateStep(stepId, ok);
+                });
+                await sleep(400);
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Personalization failed');
+                }
+
+                // Store results
+                personalizedHTML = result.personalizedHTML;
+                currentResults = result;
+
+                // Display results
+                displayResults(result);
+
+                // Hide loading, show results
+                document.getElementById('loadingSection').classList.remove('active');
+                document.getElementById('resultsSection').classList.add('active');
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('loadingSection').classList.remove('active');
+                const errorEl = document.getElementById('errorMessage');
+                errorEl.textContent = `Error: ${error.message}`;
+                errorEl.classList.add('active');
+            } finally {
+                document.getElementById('submitBtn').disabled = false;
+                resetSteps();
+            }
+        });
+
+        async function initHealthBadge() {
+            const badge = document.getElementById('healthBadge');
+            try {
+                const response = await fetch('/health');
+                const result = await response.json();
+                if (result.status === 'ok') {
+                    badge.textContent = 'Agents online';
+                    return;
+                }
+                badge.textContent = 'Agent status unavailable';
+            } catch (error) {
+                badge.textContent = 'Backend offline';
+            }
+        }
+
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function updateStep(stepId, complete) {
+            const step = document.getElementById(stepId);
+            if (complete) {
+                step.classList.add('complete');
+                step.querySelector('.step-icon').textContent = '✅';
+            } else {
+                step.classList.add('active');
+            }
+        }
+
+        function resetSteps() {
+            ['step1', 'step2', 'step3', 'step4'].forEach(id => {
+                const step = document.getElementById(id);
+                step.classList.remove('active', 'complete');
+                step.querySelector('.step-icon').textContent = '⏳';
+            });
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function displayResults(result) {
+            // Ad Analysis
+            const adAnalysis = document.getElementById('adAnalysisContent');
+            adAnalysis.innerHTML = `
+                <div class="result-item">
+                    <strong>Value Proposition:</strong> ${escapeHtml(result.data.adAnalysis.valueProposition)}
+                </div>
+                <div class="result-item">
+                    <strong>Target Audience:</strong> ${escapeHtml(result.data.adAnalysis.targetAudience)}
+                </div>
+                <div class="result-item">
+                    <strong>Tone:</strong> ${escapeHtml(result.data.adAnalysis.tone)}
+                </div>
+                <div class="result-item">
+                    <strong>Key Benefits:</strong> ${(result.data.adAnalysis.benefits || []).map(escapeHtml).join(', ')}
+                </div>
+            `;
+
+            // Strategy
+            const strategy = document.getElementById('strategyContent');
+            strategy.innerHTML = `
+                <div class="result-item">
+                    <strong>New Headline:</strong> ${escapeHtml(result.data.strategy.headline.personalized)}
+                    <br><small style="color: #666;">Reasoning: ${escapeHtml(result.data.strategy.headline.reasoning)}</small>
+                </div>
+                ${result.data.strategy.subheadline ? `
+                <div class="result-item">
+                    <strong>New Subheadline:</strong> ${escapeHtml(result.data.strategy.subheadline.personalized)}
+                </div>
+                ` : ''}
+                <div class="result-item">
+                    <strong>Expected Impact:</strong> ${escapeHtml(result.data.strategy.expectedImpact)}
+                </div>
+            `;
+
+            // Modifications
+            const modsList = document.getElementById('modificationsList');
+            modsList.innerHTML = '';
+            const modifications = result.data.modifications || [];
+            if (!modifications.length) {
+                const li = document.createElement('li');
+                li.textContent = 'No direct text replacements were detected, but personalization completed.';
+                modsList.appendChild(li);
+                return;
+            }
+
+            modifications.forEach(mod => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <strong>${escapeHtml((mod.type || 'update').toUpperCase())}:</strong><br>
+                    <small style="color: #999;">Before:</small> ${escapeHtml(mod.original)}<br>
+                    <small style="color: #4caf50;">After:</small> ${escapeHtml(mod.new)}
+                `;
+                modsList.appendChild(li);
+            });
+        }
+
+        // View personalized page
+        document.getElementById('viewPersonalizedBtn').addEventListener('click', function() {
+            if (!personalizedHTML) return;
+
+            const previewWindow = window.open('', '_blank');
+            if (!previewWindow) {
+                const errorEl = document.getElementById('errorMessage');
+                errorEl.textContent = 'Error: Popup blocked. Please allow popups and try again.';
+                errorEl.classList.add('active');
+                return;
+            }
+
+            previewWindow.document.write('<p style="font-family: sans-serif; padding: 20px;">Loading preview...</p>');
+            previewWindow.document.close();
+
+            try {
+                previewWindow.document.open();
+                previewWindow.document.write(personalizedHTML);
+                previewWindow.document.close();
+            } catch (error) {
+                previewWindow.close();
+                const errorEl = document.getElementById('errorMessage');
+                errorEl.textContent = 'Error: Unable to render preview window.';
+                errorEl.classList.add('active');
+            }
+        });
+
+        // Download HTML
+        document.getElementById('downloadBtn').addEventListener('click', function() {
+            if (personalizedHTML) {
+                const blob = new Blob([personalizedHTML], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'personalized-landing-page.html';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        });
+
+        // New request
+        document.getElementById('newRequestBtn').addEventListener('click', function() {
+            document.getElementById('personalizationForm').reset();
+            document.getElementById('fileLabel').classList.remove('has-file');
+            document.getElementById('fileLabel').innerHTML = `
+                <span class="upload-icon">📸</span>
+                <div class="upload-text">
+                    <p class="primary">Click to upload your ad creative</p>
+                    <p>Supports JPG, PNG, WebP (max 10MB)</p>
+                </div>
+            `;
+            document.getElementById('resultsSection').classList.remove('active');
+            personalizedHTML = '';
+            currentResults = null;
+        });
+    </script>
+</body>
+</html>
