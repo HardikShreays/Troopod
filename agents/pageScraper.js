@@ -1,6 +1,46 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+/** Headers that mimic a current desktop browser; reduces 403s from CDNs/WAFs vs bare axios. */
+const BROWSER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  Accept:
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cache-Control': 'no-cache',
+  Pragma: 'no-cache',
+  'Upgrade-Insecure-Requests': '1',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1'
+};
+
+function formatScrapeError(error) {
+  if (axios.isAxiosError(error) && error.response) {
+    const status = error.response.status;
+    if (status === 403 || status === 401) {
+      return (
+        `Landing page returned HTTP ${status} (access denied). ` +
+        'The site may block requests from cloud/datacenter IPs or bots. ' +
+        'Try another public URL, a simpler marketing page, or host a copy the server can reach.'
+      );
+    }
+    if (status === 429) {
+      return 'Landing page rate-limited the request (HTTP 429). Try again later or use a different URL.';
+    }
+    return `HTTP ${status} when fetching the page`;
+  }
+  if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+    return 'Request timed out while fetching the landing page';
+  }
+  if (error.code === 'ENOTFOUND' || error.code === 'EAI_AGAIN') {
+    return 'Could not resolve the landing page hostname';
+  }
+  return error.message || String(error);
+}
+
 class LandingPageScraperAgent {
   constructor() {
     this.timeout = 10000;
@@ -16,9 +56,7 @@ class LandingPageScraperAgent {
 
       const response = await axios.get(url, {
         timeout: this.timeout,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
+        headers: BROWSER_HEADERS,
         maxRedirects: 5
       });
 
@@ -42,7 +80,7 @@ class LandingPageScraperAgent {
       console.error('Scraping error:', error);
       return {
         success: false,
-        error: error.message,
+        error: formatScrapeError(error),
         data: null
       };
     }
