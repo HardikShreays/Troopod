@@ -611,6 +611,36 @@
                 .replace(/'/g, '&#39;');
         }
 
+        /**
+         * Preview is written into about:blank, so root-relative URLs like /static/clickstream.js
+         * would otherwise resolve to this app (404). Point <base> at the original landing page URL.
+         */
+        function injectBaseHref(html, pageUrl) {
+            let baseHref;
+            try {
+                baseHref = new URL('.', pageUrl).href;
+            } catch {
+                return html;
+            }
+            const safe = baseHref.replace(/"/g, '&quot;');
+            const baseTag = `<base href="${safe}">`;
+            let out = html.replace(/<base\b[^>]*>/gi, '');
+            if (/<head[^>]*>/i.test(out)) {
+                return out.replace(/<head[^>]*>/i, function (m) { return m + baseTag; });
+            }
+            if (/<html[^>]*>/i.test(out)) {
+                return out.replace(/<html[^>]*>/i, function (m) { return m + '<head>' + baseTag + '</head>'; });
+            }
+            return '<!DOCTYPE html><html><head>' + baseTag + '</head><body>' + out + '</body></html>';
+        }
+
+        function getLandingPageUrlForPreview() {
+            if (currentResults && currentResults.data && currentResults.data.originalPage && currentResults.data.originalPage.url) {
+                return currentResults.data.originalPage.url;
+            }
+            return document.getElementById('landingPageURL').value.trim();
+        }
+
         function updateStep(stepId, complete) {
             const step = document.getElementById(stepId);
             if (complete) {
@@ -706,8 +736,10 @@
             previewWindow.document.close();
 
             try {
+                const pageUrl = getLandingPageUrlForPreview();
+                const htmlWithBase = injectBaseHref(personalizedHTML, pageUrl);
                 previewWindow.document.open();
-                previewWindow.document.write(personalizedHTML);
+                previewWindow.document.write(htmlWithBase);
                 previewWindow.document.close();
             } catch (error) {
                 previewWindow.close();
@@ -720,7 +752,9 @@
         // Download HTML
         document.getElementById('downloadBtn').addEventListener('click', function() {
             if (personalizedHTML) {
-                const blob = new Blob([personalizedHTML], { type: 'text/html' });
+                const pageUrl = getLandingPageUrlForPreview();
+                const htmlWithBase = injectBaseHref(personalizedHTML, pageUrl);
+                const blob = new Blob([htmlWithBase], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
