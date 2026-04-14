@@ -1,5 +1,17 @@
 const cheerio = require('cheerio');
 
+/** Trim and collapse whitespace so LLM output does not leave odd gaps or empty blocks. */
+function normalizeCopyText(str) {
+  if (str == null || typeof str !== 'string') return '';
+  return str
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\n+/g, ' ')
+    .replace(/[\t\f\v\u00a0]+/g, ' ')
+    .replace(/ +/g, ' ')
+    .trim();
+}
+
 class HTMLGeneratorAgent {
   constructor(apiKey) {
     this.apiKey = apiKey;
@@ -68,29 +80,35 @@ Return ONLY the complete modified HTML with NO markdown code blocks, NO explanat
     try {
       // Update main headline
       if (strategy.headline && strategy.headline.personalized) {
-        const h1 = $('h1').first();
-        if (h1.length > 0) {
-          const original = h1.text();
-          h1.text(strategy.headline.personalized);
-          modifications.push({
-            type: 'headline',
-            original,
-            new: strategy.headline.personalized
-          });
+        const next = normalizeCopyText(strategy.headline.personalized);
+        if (next) {
+          const h1 = $('h1').first();
+          if (h1.length > 0) {
+            const original = h1.text();
+            this._setHeadingText($, h1, next);
+            modifications.push({
+              type: 'headline',
+              original,
+              new: next
+            });
+          }
         }
       }
 
       // Update subheadline
       if (strategy.subheadline && strategy.subheadline.personalized) {
-        const h2 = $('h2').first();
-        if (h2.length > 0) {
-          const original = h2.text();
-          h2.text(strategy.subheadline.personalized);
-          modifications.push({
-            type: 'subheadline',
-            original,
-            new: strategy.subheadline.personalized
-          });
+        const next = normalizeCopyText(strategy.subheadline.personalized);
+        if (next) {
+          const h2 = $('h2').first();
+          if (h2.length > 0) {
+            const original = h2.text();
+            this._setHeadingText($, h2, next);
+            modifications.push({
+              type: 'subheadline',
+              original,
+              new: next
+            });
+          }
         }
       }
 
@@ -98,15 +116,17 @@ Return ONLY the complete modified HTML with NO markdown code blocks, NO explanat
       if (strategy.ctas && Array.isArray(strategy.ctas)) {
         strategy.ctas.forEach((cta, index) => {
           if (cta.personalized && pageStructure.ctas[index]) {
+            const next = normalizeCopyText(cta.personalized);
+            if (!next) return;
             const selector = pageStructure.ctas[index].selector;
             const element = $(selector).first();
             if (element.length > 0) {
               const original = element.text();
-              element.text(cta.personalized);
+              element.text(next);
               modifications.push({
                 type: 'cta',
                 original,
-                new: cta.personalized,
+                new: next,
                 selector
               });
             }
@@ -119,6 +139,23 @@ Return ONLY the complete modified HTML with NO markdown code blocks, NO explanat
       console.error('Error applying modifications:', error);
       return modifications;
     }
+  }
+
+  /**
+   * Prefer updating a single inner wrapper (span/div) when present so flex/grid layouts
+   * that rely on sibling nodes (icons, badges) are not flattened into one text node.
+   */
+  _setHeadingText($, $heading, text) {
+    const kids = $heading.children();
+    if (kids.length === 1) {
+      const only = kids.first();
+      const name = (only.get(0) && only.get(0).name) || '';
+      if (/^(span|div|p|strong|em|b|i|a)$/i.test(name)) {
+        only.text(text);
+        return;
+      }
+    }
+    $heading.text(text);
   }
 
   _validateHTML(original, modified) {
@@ -171,12 +208,13 @@ Return ONLY the complete modified HTML with NO markdown code blocks, NO explanat
   }
 
   _applySafeModifications(originalHTML, strategy, pageStructure) {
-    // Ultra-safe fallback: only modify text content, nothing else
     const $ = cheerio.load(originalHTML);
-    
-    // Only update h1 if it exists
+
     if (strategy.headline && strategy.headline.personalized) {
-      $('h1').first().text(strategy.headline.personalized);
+      const next = normalizeCopyText(strategy.headline.personalized);
+      if (next) {
+        this._setHeadingText($, $('h1').first(), next);
+      }
     }
 
     return $.html();
@@ -184,30 +222,13 @@ Return ONLY the complete modified HTML with NO markdown code blocks, NO explanat
 
   _addPersonalizationBanner(html, strategy) {
     const $ = cheerio.load(html);
-    
-    const banner = `
-    <div style="
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 12px 20px;
-      text-align: center;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-      z-index: 9999;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-    ">
-      <span style="font-weight: 600;">✨ Personalized Landing Page</span>
-      <span style="opacity: 0.9;">• This page has been optimized based on your ad creative</span>
-    </div>`;
-    
+
+    const banner =
+      '<div style="position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:12px 20px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;font-size:14px;box-shadow:0 -2px 10px rgba(0,0,0,0.1);z-index:9999;display:flex;justify-content:center;align-items:center;gap:10px">' +
+      '<span style="font-weight:600">✨ Personalized Landing Page</span>' +
+      '<span style="opacity:.9">• Optimized for your ad creative</span>' +
+      '</div>';
+
     $('body').append(banner);
     return $.html();
   }

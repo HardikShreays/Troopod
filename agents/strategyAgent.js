@@ -114,6 +114,8 @@ Create a strategy that:
 4. Optimizes CTAs to match the ad's urgency level
 5. Adds trust elements if the ad mentions them
 
+All personalized headline, subheadline, and CTA strings must be a single line: no line breaks, no leading/trailing spaces, and no double spaces.
+
 Return ONLY valid JSON, no markdown, no explanations.`;
   }
 
