@@ -641,6 +641,47 @@
             return document.getElementById('landingPageURL').value.trim();
         }
 
+        /**
+         * Full-site SPAs (Sephora, etc.) use location.origin, XHR/fetch to same-origin APIs, and
+         * third-party scripts keyed to the real domain. In a tab served from your Vercel app, those
+         * calls hit your host (404/CORS) and wipe the UI. For "View" we strip scripts and inline
+         * handlers so CSS/images can still load via <base href> while the page stays static.
+         */
+        function prepareStaticPreviewHtml(html, pageUrl) {
+            const withBase = injectBaseHref(html, pageUrl);
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(withBase, 'text/html');
+            if (doc.querySelector('parsererror')) {
+                return withBase.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<script\b[^/>]*\/>/gi, '');
+            }
+            doc.querySelectorAll('script').forEach(function (el) { el.remove(); });
+            doc.querySelectorAll('link[rel="preload"][as="script"], link[rel="modulepreload"]').forEach(function (el) {
+                el.remove();
+            });
+            doc.querySelectorAll('*').forEach(function (el) {
+                for (var i = el.attributes.length - 1; i >= 0; i--) {
+                    var name = el.attributes[i].name;
+                    if (name.toLowerCase().indexOf('on') === 0) {
+                        el.removeAttribute(name);
+                    }
+                }
+            });
+            var banner = doc.createElement('div');
+            banner.setAttribute('style', [
+                'position:sticky', 'top:0', 'z-index:2147483646', 'padding:10px 16px',
+                'background:#1a1a2e', 'color:#eee', 'font:14px system-ui,sans-serif',
+                'border-bottom:2px solid #667eea', 'line-height:1.4'
+            ].join(';'));
+            banner.textContent =
+                'Troopod preview: scripts are off so analytics, cart, and site apps do not run here. ' +
+                'You should see personalized copy and styling; the real site only works on its own domain.';
+            var body = doc.body;
+            if (body) {
+                body.insertBefore(banner, body.firstChild);
+            }
+            return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+        }
+
         function updateStep(stepId, complete) {
             const step = document.getElementById(stepId);
             if (complete) {
@@ -737,9 +778,9 @@
 
             try {
                 const pageUrl = getLandingPageUrlForPreview();
-                const htmlWithBase = injectBaseHref(personalizedHTML, pageUrl);
+                const previewHtml = prepareStaticPreviewHtml(personalizedHTML, pageUrl);
                 previewWindow.document.open();
-                previewWindow.document.write(htmlWithBase);
+                previewWindow.document.write(previewHtml);
                 previewWindow.document.close();
             } catch (error) {
                 previewWindow.close();
